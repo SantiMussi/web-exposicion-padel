@@ -33,11 +33,11 @@ Abrir http://localhost:5173 y http://localhost:5173/admin.html
 
 1. **Base de datos**: hPanel → *Bases de datos → Administración* → crear base + usuario. Anotar nombre, usuario y clave (Hostinger les antepone `u123456789_`).
 2. **Completar** `public/api-config.php` con esos datos, y `public/config.js` con las fechas de los 3 viernes y los links de WhatsApp.
-3. **Subir** todo el contenido de `public/` (incluido `.htaccess`, que está oculto) a `public_html/padel/` con el *Administrador de archivos* o por FTP.
-4. **Probar**: abrir `https://tudominio.com/padel/api.php` → tiene que mostrar `{"ocupados":{}}`. Si dice `{"error":"db"}`, revisar los datos de `api-config.php`.
-5. Verificar que `https://tudominio.com/padel/api-config.php` dé **403** (prohibido).
+3. **Subir** el repo a `public_html/` (despliegue Git de Hostinger o Administrador de archivos). El `.htaccess` de la raíz manda todo a `public/`. `api-config.php` no está en git: subirlo a mano a `public_html/public/`.
+4. **Probar**: abrir `https://tudominio.com/api.php` → tiene que mostrar `{"ocupados":{}}`. Si dice `{"error":"db"}`, revisar los datos de `api-config.php`.
+5. Verificar que `https://tudominio.com/api-config.php` dé **403** (prohibido).
 
-`https://tudominio.com/padel/` **es el link que va en el QR.** Tabla de anotados: `https://tudominio.com/padel/admin.html`.
+`https://tudominio.com/` **es el link que va en el QR.** Tabla de anotados: `https://tudominio.com/admin.html`.
 
 ## Grupos de WhatsApp
 

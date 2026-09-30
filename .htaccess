@@ -1,0 +1,4 @@
+# El sitio vive en public/. Todo lo que se pida en la raíz se sirve desde ahí,
+# así el link del QR es el dominio pelado y README, .claude, etc. no quedan expuestos.
+RewriteEngine On
+RewriteRule ^(?!public/)(.*)$ public/$1 [L]
