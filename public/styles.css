@@ -1,4 +1,5 @@
 :root {
+  color-scheme: only light;
   --court: #1e63b5;
   --court-deep: #123f78;
   --navy: #0b2344;
@@ -17,21 +18,6 @@
   --wa-text: #05321a;
   --radius: 16px;
   --display: 'Barlow Condensed', 'Arial Narrow', Impact, sans-serif;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0c2242;
-    --court: #174f94;
-    --court-deep: #0a1c38;
-    --on-bg: rgba(255, 255, 255, 0.7);
-    --card: #11294b;
-    --text: #eef3fa;
-    --muted: #9fb2cc;
-    --line: #22406a;
-    --chip: #0d2140;
-    --warn: #ffa06b;
-  }
 }
 
 * {
@@ -698,12 +684,6 @@ main.con-barra {
   font-weight: 700;
   background: var(--warn);
   color: #fff;
-}
-
-@media (prefers-color-scheme: dark) {
-  .btn-baja {
-    color: #2a0f00;
-  }
 }
 
 .btn-baja:disabled {
