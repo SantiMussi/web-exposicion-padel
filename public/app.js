@@ -15,6 +15,7 @@ const estado = {
   enviando: false,
   reserva: leerReserva(),
   cambiando: false,
+  confirmandoBaja: false,
   diaSel: null,
   turnoSel: null,
 };
@@ -31,7 +32,8 @@ function leerReserva() {
 
 function guardarReserva(id) {
   try {
-    localStorage.setItem(KEY_RESERVA, id);
+    if (id) localStorage.setItem(KEY_RESERVA, id);
+    else localStorage.removeItem(KEY_RESERVA);
   } catch {}
 }
 
@@ -61,17 +63,32 @@ const WA_ICON = `<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="tr
 
 // ── vistas ───────────────────────────────────────────────────
 
+const PELOTA = `<svg class="pelota-ok" viewBox="-25 -25 50 50" aria-hidden="true"><circle r="23" fill="#d8f03c"/><path d="M-17-15c9 8 9 22 0 30M17-15c-9 8-9 22 0 30" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/></svg>`;
+
 function vistaListo() {
   const t = turnoPorId(estado.reserva);
+  const acciones = estado.confirmandoBaja
+    ? `<div class="baja-confirmar">
+        <p>¿Seguro? Liberás tu lugar del ${t.dia.nombre.toLowerCase()} a las ${t.hora} y otra persona lo puede tomar.</p>
+        <div class="baja-botones">
+          <button class="btn-baja" data-accion="baja-si" ${estado.enviando ? 'disabled' : ''}>${estado.enviando ? 'Liberando…' : 'Sí, desinscribirme'}</button>
+          <button class="btn-link" data-accion="baja-no">No, me quedo</button>
+        </div>
+      </div>`
+    : `<div class="acciones-listo">
+        <button class="btn-link" data-accion="cambiar">Cambiar de horario</button>
+        <button class="btn-link" data-accion="baja">Desinscribirme</button>
+      </div>`;
+
   return `
     <section class="card listo">
-      <div class="check" aria-hidden="true">✓</div>
+      ${PELOTA}
       <h2>¡Estás anotado!</h2>
-      <p class="turno-grande">${t.dia.nombre} ${t.dia.fecha}<br><strong>${t.hora} a ${horaFin(t.hora)} h</strong></p>
+      <p class="turno-grande">${t.dia.nombre} ${t.dia.fecha}<strong>${t.hora} a ${horaFin(t.hora)} h</strong></p>
       <p class="paso">Último paso: sumate al grupo de WhatsApp de tu turno. Ahí se pasa toda la info.</p>
       <a class="btn-wa" href="${t.whatsapp}" target="_blank" rel="noopener">${WA_ICON} Unirme al grupo</a>
       <p class="nota">Si cerrás esto, volvé a escanear el QR desde este mismo celular y vas a ver tu grupo.</p>
-      <button class="btn-link" data-accion="cambiar">Cambiar de horario</button>
+      ${acciones}
     </section>`;
 }
 
@@ -109,7 +126,7 @@ function vistaElegir() {
   const bloqueTurnos = dia
     ? `
     <section class="card turnos" id="turnos">
-      <h2>${dia.nombre} ${dia.fecha} · elegí horario</h2>
+      <h2><span class="num-paso">2</span>${dia.nombre} ${dia.fecha} · horario</h2>
       ${turnosVigentes(dia)
         .map((t) => {
           const l = libres(t);
@@ -146,7 +163,7 @@ function vistaElegir() {
 
   return `${aviso}
     <section class="card">
-      <h2>1. Elegí el día</h2>
+      <h2><span class="num-paso">1</span>Elegí el día</h2>
       ${bloquesDias}
     </section>
     ${bloqueTurnos}
@@ -200,6 +217,28 @@ async function confirmar() {
   }
 }
 
+async function desinscribir() {
+  if (!estado.reserva || estado.enviando) return;
+  estado.enviando = true;
+  render();
+  try {
+    await estado.store.cancelar(estado.reserva);
+    estado.reserva = null;
+    guardarReserva(null);
+    estado.diaSel = null;
+    estado.turnoSel = null;
+    toast('Listo, liberaste tu lugar. Si querés, podés elegir otro turno.');
+  } catch (e) {
+    console.error(e);
+    toast('No se pudo desinscribir. Probá de nuevo en unos segundos.');
+  } finally {
+    estado.enviando = false;
+    estado.confirmandoBaja = false;
+    await refrescar();
+    render();
+  }
+}
+
 $app.addEventListener('click', (ev) => {
   const el = ev.target.closest('button');
   if (!el || el.disabled) return;
@@ -220,6 +259,14 @@ $app.addEventListener('click', (ev) => {
     estado.turnoSel = null;
     refrescar().then(render);
     render();
+  } else if (el.dataset.accion === 'baja') {
+    estado.confirmandoBaja = true;
+    render();
+  } else if (el.dataset.accion === 'baja-no') {
+    estado.confirmandoBaja = false;
+    render();
+  } else if (el.dataset.accion === 'baja-si') {
+    desinscribir();
   } else if (el.dataset.accion === 'cancelar-cambio') {
     estado.cambiando = false;
     estado.turnoSel = null;

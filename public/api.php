@@ -2,6 +2,7 @@
 // API de cupos.
 //   GET  api.php                                   → { "ocupados": { "2026-10-09-1900": 12, ... } }
 //   POST api.php  { "turno": "...", "anterior": "..." }  → { "ok": true } | 409 { "error": "lleno" }
+//   POST api.php  { "accion": "baja", "turno": "..." }   → { "ok": true }
 //
 // La tabla `turnos` se crea sola la primera vez.
 
@@ -58,6 +59,18 @@ $turno = (string) ($datos['turno'] ?? '');
 $anterior = (string) ($datos['anterior'] ?? '');
 
 if (!turnoValido($turno, $cfg)) responder(400, ['error' => 'turno']);
+
+// Desinscribirse: libera el lugar.
+if (($datos['accion'] ?? '') === 'baja') {
+    try {
+        $db->prepare('UPDATE turnos SET ocupados = ocupados - 1 WHERE id = ? AND ocupados > 0')
+            ->execute([$turno]);
+        responder(200, ['ok' => true]);
+    } catch (Throwable $e) {
+        error_log('padel api: ' . $e->getMessage());
+        responder(500, ['error' => 'db']);
+    }
+}
 if ($anterior !== '' && !turnoValido($anterior, $cfg)) $anterior = '';
 
 // Sin transacción a propósito: cada UPDATE es atómico por sí solo, y así no hay

@@ -43,6 +43,15 @@ function crearStoreApi() {
       if (r.status === 409) throw new LlenoError();
       if (!r.ok) throw new Error(`api ${r.status}`);
     },
+
+    async cancelar(turnoId) {
+      const r = await fetch('api.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accion: 'baja', turno: turnoId }),
+      });
+      if (!r.ok) throw new Error(`api ${r.status}`);
+    },
   };
 }
 
@@ -73,6 +82,12 @@ function crearStoreDemo() {
       if ((o[turno.id] || 0) >= turno.cupo) throw new LlenoError();
       o[turno.id] = (o[turno.id] || 0) + 1;
       if (anteriorId && o[anteriorId] > 0) o[anteriorId] -= 1;
+      guardar(o);
+    },
+    async cancelar(turnoId) {
+      await new Promise((r) => setTimeout(r, 300));
+      const o = cargar();
+      if (o[turnoId] > 0) o[turnoId] -= 1;
       guardar(o);
     },
   };

@@ -4,7 +4,7 @@ La gente escanea el QR del club → elige día y horario → se reserva el lugar
 
 - 3 fines de semana × viernes, sábado y domingo × 19, 20 y 21 h = **27 turnos de 30 personas = 810 lugares**.
 - Los cupos se cuentan en MySQL (Hostinger). La reserva es un único `UPDATE ... WHERE ocupados < 30`, así que nunca pasa de 30 aunque se anoten 50 a la vez.
-- Cada celular recuerda su turno: si vuelve a escanear, ve su grupo directamente (no cuenta dos veces). Puede **cambiar de horario**, y eso libera el lugar anterior.
+- Cada celular recuerda su turno: si vuelve a escanear, ve su grupo directamente (no cuenta dos veces). Puede **cambiar de horario** o **desinscribirse**, y eso libera el lugar.
 - Los turnos que ya empezaron se ocultan solos.
 - `admin.html` → tabla con anotados por turno, para Francisco.
 
