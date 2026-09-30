@@ -13,7 +13,7 @@ La gente escanea el QR del club → elige día y horario → se reserva el lugar
 | Archivo | Qué es |
 |---|---|
 | `config.js` | Fechas, horarios, cupo, links de WhatsApp |
-| `api-config.php` | Datos de la base MySQL (+ cupo y horas, iguales a `config.js`) |
+| `api-config.php` | Datos de la base MySQL (+ cupo y horas, iguales a `config.js`). **No va a git**: si no está, copiarlo de `api-config.example.php` |
 | `api.php` | Lee y reserva cupos. Crea la tabla `turnos` sola |
 | `index.html` · `app.js` · `styles.css` · `store.js` | La página que abre el QR |
 | `admin.html` | Tabla de anotados |

@@ -1,1 +1,3 @@
 *.log
+# tiene la clave de la base
+public/api-config.php
