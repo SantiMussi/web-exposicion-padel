@@ -4,53 +4,164 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex" />
-    <title>Cupos Pádel</title>
+    <title>Inscriptos Pádel</title>
     <link
       href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@1,700;1,800&family=Inter:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="styles.css" />
     <style>
-      table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-      th, td { padding: 8px 6px; border-bottom: 1px solid var(--line); text-align: left; }
-      th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
-      td.num { text-align: right; }
-      tr.lleno td { color: var(--warn); font-weight: 600; }
-      .total { display: flex; justify-content: space-between; font-size: 20px; font-weight: 700; }
-      .fila-dia td { background: var(--bg); font-weight: 700; }
+      main { max-width: 720px; }
+      .total { display: flex; justify-content: space-between; align-items: baseline; font-size: 20px; font-weight: 700; }
+      .total small { font-size: 13px; font-weight: 500; color: var(--muted); }
+      .dia-admin h3 { font-family: var(--display); font-style: italic; text-transform: uppercase; font-size: 22px; margin: 0 0 10px; }
+      .turno-admin { border-top: 1px solid var(--line); padding: 10px 0; }
+      .turno-admin summary { display: flex; justify-content: space-between; gap: 12px; cursor: pointer; font-weight: 600; list-style: none; }
+      .turno-admin summary::-webkit-details-marker { display: none; }
+      .turno-admin summary::before { content: '▸'; color: var(--muted); margin-right: 6px; }
+      .turno-admin[open] summary::before { content: '▾'; }
+      .turno-admin summary .hora { flex: 1; }
+      .turno-admin.lleno summary .cuenta { color: var(--warn); }
+      table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 14px; }
+      td { padding: 6px 4px; border-bottom: 1px solid var(--line); vertical-align: top; }
+      td.num { text-align: right; white-space: nowrap; }
+      td a { color: inherit; }
+      .vacio { color: var(--muted); font-size: 14px; margin: 6px 0 0; }
+      .acciones { display: flex; gap: 10px; }
+      .acciones .btn-primario { font-size: 18px; padding: 12px; }
+      .btn-sec { flex: 1; border: 2px solid var(--ball); background: transparent; color: #fff; border-radius: 14px; font-weight: 700; }
+      #login .campo { margin-bottom: 12px; }
     </style>
   </head>
   <body>
-    <header class="hero"><div class="hero-in" style="min-height:0"><span class="tag">Organización</span><h1>Cupos por turno</h1><p id="modo"></p></div></header>
+    <header class="hero">
+      <div class="hero-in" style="min-height: 0">
+        <span class="tag">Organización</span>
+        <h1>Inscriptos</h1>
+        <p id="modo"></p>
+      </div>
+    </header>
+
     <main>
-      <section class="card"><div class="total"><span>Anotados</span><span id="total">…</span></div></section>
-      <section class="card"><table><thead><tr><th>Turno</th><th class="num">Anotados</th><th class="num">Libres</th></tr></thead><tbody id="filas"></tbody></table></section>
-      <button class="btn-primario" id="actualizar">Actualizar</button>
+      <form id="login" class="card" hidden>
+        <h2>Clave de organización</h2>
+        <label class="campo">
+          <span>Clave</span>
+          <input name="clave" type="password" autocomplete="current-password" required />
+        </label>
+        <button class="btn-primario">Entrar</button>
+      </form>
+
+      <div id="panel" hidden>
+        <section class="card">
+          <div class="total"><span>Personas anotadas</span><span id="total">…</span></div>
+          <div class="total"><small>Inscripciones (una por celular)</small><small id="inscripciones"></small></div>
+        </section>
+        <div id="dias"></div>
+        <div class="acciones">
+          <button class="btn-primario" id="actualizar">Actualizar</button>
+          <button class="btn-sec" id="csv">Descargar Excel (CSV)</button>
+        </div>
+      </div>
     </main>
+
+    <div id="toast" role="alert" hidden></div>
+
     <script type="module">
       import { DIAS } from './config.js';
-      import { crearStore, turnoPorId } from './store.js';
+      import { crearStore, turnoPorId, ClaveError } from './store.js';
 
-      const store = await crearStore();
-      document.getElementById('modo').textContent = store.demo ? 'Modo demo (datos de este navegador)' : 'Datos en vivo';
+      const KEY_CLAVE = 'padel-admin-clave';
+      const $ = (id) => document.getElementById(id);
+      const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+      const leerClave = () => { try { return sessionStorage.getItem(KEY_CLAVE) || ''; } catch { return ''; } };
+      const guardarClave = (c) => { try { c ? sessionStorage.setItem(KEY_CLAVE, c) : sessionStorage.removeItem(KEY_CLAVE); } catch {} };
 
-      async function cargar() {
-        const oc = await store.leer();
-        let total = 0, cupoTotal = 0, html = '';
-        for (const d of DIAS) {
-          html += `<tr class="fila-dia"><td colspan="3">${d.finde}º finde · ${d.nombre} ${d.fecha}</td></tr>`;
-          for (const h of d.horarios) {
-            const t = turnoPorId(`${d.id}-${h.hora.replace(':', '')}`);
-            const n = oc[t.id] || 0;
-            total += n; cupoTotal += t.cupo;
-            html += `<tr class="${n >= t.cupo ? 'lleno' : ''}"><td>${t.hora} h</td><td class="num">${n}</td><td class="num">${t.cupo - n}</td></tr>`;
-          }
-        }
-        document.getElementById('filas').innerHTML = html;
-        document.getElementById('total').textContent = `${total} / ${cupoTotal}`;
+      function toast(msg) {
+        $('toast').textContent = msg;
+        $('toast').hidden = false;
+        clearTimeout(toast.t);
+        toast.t = setTimeout(() => ($('toast').hidden = true), 4000);
       }
 
-      document.getElementById('actualizar').onclick = cargar;
+      const store = await crearStore();
+      $('modo').textContent = store.demo ? 'Modo demo (datos de este navegador)' : 'Datos en vivo';
+      let clave = leerClave();
+      let lista = [];
+
+      function render(ocupados) {
+        const porTurno = {};
+        for (const i of lista) (porTurno[i.turno] ||= []).push(i);
+
+        let total = 0, cupoTotal = 0;
+        $('dias').innerHTML = DIAS.map((d) => {
+          const turnos = d.horarios.map((h) => {
+            const t = turnoPorId(`${d.id}-${h.hora.replace(':', '')}`);
+            const n = ocupados[t.id] || 0;
+            const gente = porTurno[t.id] || [];
+            total += n; cupoTotal += t.cupo;
+            const filas = gente.map((i) => `<tr>
+                <td>${esc(i.nombre)}</td>
+                <td><a href="https://wa.me/${esc(i.telefono.replace(/\D/g, ''))}" target="_blank" rel="noopener">${esc(i.telefono)}</a></td>
+                <td class="num">${i.personas === 1 ? 'solo' : `+${i.personas - 1}`}</td>
+              </tr>`).join('');
+            return `<details class="turno-admin ${n >= t.cupo ? 'lleno' : ''}">
+                <summary><span class="hora">${t.hora} h</span><span class="cuenta">${n} / ${t.cupo}</span></summary>
+                ${gente.length ? `<table>${filas}</table>` : '<p class="vacio">Nadie anotado todavía.</p>'}
+              </details>`;
+          }).join('');
+          return `<section class="card dia-admin"><h3>${d.finde}º finde · ${d.nombre} ${d.fecha}</h3>${turnos}</section>`;
+        }).join('');
+
+        $('total').textContent = `${total} / ${cupoTotal}`;
+        $('inscripciones').textContent = lista.length;
+      }
+
+      async function cargar() {
+        try {
+          const [ocupados, inscriptos] = await Promise.all([store.leer(), store.inscriptos(clave)]);
+          lista = inscriptos;
+          guardarClave(clave);
+          $('login').hidden = true;
+          $('panel').hidden = false;
+          render(ocupados);
+        } catch (e) {
+          if (e instanceof ClaveError) {
+            guardarClave('');
+            $('panel').hidden = true;
+            $('login').hidden = false;
+            if (clave) toast('Clave incorrecta.');
+          } else {
+            console.error(e);
+            toast('No se pudieron cargar los datos.');
+          }
+        }
+      }
+
+      function descargarCSV() {
+        const col = (v) => `"${String(v).replace(/"/g, '""')}"`;
+        const filas = [['Día', 'Fecha', 'Hora', 'Nombre', 'Celular', 'Personas', 'Anotado']];
+        for (const i of lista) {
+          const t = turnoPorId(i.turno);
+          filas.push([t?.dia.nombre ?? '', t?.dia.id ?? '', t?.hora ?? i.turno, i.nombre, i.telefono, i.personas, i.creada]);
+        }
+        // BOM + ; para que Excel en español lo abra bien
+        const csv = '﻿' + filas.map((f) => f.map(col).join(';')).join('\r\n');
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+        a.download = `inscriptos-padel-${new Date().toISOString().slice(0, 10)}.csv`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+      }
+
+      $('login').addEventListener('submit', (ev) => {
+        ev.preventDefault();
+        clave = new FormData(ev.target).get('clave');
+        cargar();
+      });
+      $('actualizar').onclick = cargar;
+      $('csv').onclick = descargarCSV;
+
       cargar();
     </script>
   </body>

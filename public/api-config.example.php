@@ -9,4 +9,8 @@ return [
 
     'cupo'  => 30,
     'horas' => ['1900', '2000', '2100'],
+    'max_acompanantes' => 3,
+
+    // Clave para ver la lista de inscriptos en admin.html (nombres y teléfonos).
+    'admin_clave' => 'REEMPLAZAR',
 ];

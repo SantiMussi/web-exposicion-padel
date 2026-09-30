@@ -421,6 +421,124 @@ main.con-barra {
   background: var(--navy);
 }
 
+/* ── datos ──────────────────────────────────────────── */
+
+.datos {
+  scroll-margin-top: 16px;
+}
+
+.campo {
+  display: block;
+  margin-bottom: 16px;
+}
+
+.campo > span {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.campo input {
+  width: 100%;
+  font: inherit;
+  font-size: 17px; /* ≥16px para que iPhone no haga zoom */
+  color: var(--text);
+  background: var(--chip);
+  border: 2px solid transparent;
+  border-radius: 12px;
+  padding: 12px 14px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.campo input::placeholder {
+  color: var(--muted);
+  opacity: 0.7;
+}
+
+.campo input:focus {
+  border-color: var(--court);
+}
+
+.campo input[aria-invalid='true'] {
+  border-color: var(--warn);
+}
+
+.campo small {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.opciones {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.opcion {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 6px;
+  background: var(--chip);
+  border: 2px solid transparent;
+  border-radius: 12px;
+  transition: border-color 0.15s, background 0.15s, transform 0.1s;
+}
+
+.opcion:hover:not(:disabled) {
+  border-color: var(--court);
+}
+
+.opcion:active {
+  transform: scale(0.97);
+}
+
+.opcion.sel {
+  background: var(--sel);
+  border-color: var(--sel);
+  color: var(--sel-text);
+}
+
+.opcion:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.opcion-num {
+  font-family: var(--display);
+  font-style: italic;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.opcion-txt {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.privacidad {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.reserva-de {
+  margin: -8px 0 16px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.reserva-de b {
+  color: var(--text);
+}
+
 /* ── confirmar ──────────────────────────────────────── */
 
 .confirmar {

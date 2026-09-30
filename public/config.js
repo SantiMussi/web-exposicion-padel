@@ -16,6 +16,9 @@ export const FINES_DE_SEMANA = ['2026-10-09', '2026-10-16', '2026-10-23'];
 // Si cambiás esto, cambiá también 'cupo' y 'horas' en api-config.php.
 export const HORARIOS = ['19:00', '20:00', '21:00'];
 export const CUPO_POR_TURNO = 30;
+// Cuántas personas puede sumar cada inscripto además de él. Cada una ocupa un lugar.
+// Si lo cambiás, cambiá también 'max_acompanantes' en api-config.php.
+export const MAX_ACOMPANANTES = 3;
 
 // Link de invitación del grupo de WhatsApp (WhatsApp > grupo > Invitar por enlace).
 // LINK_POR_DEFECTO se usa para cualquier turno que no esté en LINKS.

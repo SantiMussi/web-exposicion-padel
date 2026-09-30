@@ -1,7 +1,8 @@
-import { DIAS, EVENTO } from './config.js';
+import { DIAS, EVENTO, MAX_ACOMPANANTES } from './config.js';
 import { crearStore, turnoPorId, LlenoError } from './store.js';
 
 const KEY_RESERVA = 'padel-reserva';
+const KEY_DATOS = 'padel-datos';
 
 const $app = document.getElementById('app');
 const $toast = document.getElementById('toast');
@@ -13,7 +14,9 @@ const estado = {
   ocupados: {},
   cargando: true,
   enviando: false,
-  reserva: leerReserva(),
+  // { token, turno, personas, nombre } de este celular
+  reserva: leerJSON(KEY_RESERVA, (r) => r?.token && turnoPorId(r.turno)),
+  datos: { nombre: '', telefono: '', acompanantes: 0, ...leerJSON(KEY_DATOS, (d) => d) },
   cambiando: false,
   confirmandoBaja: false,
   diaSel: null,
@@ -22,24 +25,33 @@ const estado = {
 
 // ── helpers ──────────────────────────────────────────────────
 
-function leerReserva() {
+function leerJSON(key, valido) {
   try {
-    return localStorage.getItem(KEY_RESERVA);
+    const v = JSON.parse(localStorage.getItem(key));
+    return valido(v) ? v : null;
   } catch {
     return null;
   }
 }
 
-function guardarReserva(id) {
+function guardarJSON(key, valor) {
   try {
-    if (id) localStorage.setItem(KEY_RESERVA, id);
-    else localStorage.removeItem(KEY_RESERVA);
+    if (valor) localStorage.setItem(key, JSON.stringify(valor));
+    else localStorage.removeItem(key);
   } catch {}
 }
+
+const esc = (s) =>
+  String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 const horaFin = (hora) => `${String(Number(hora.slice(0, 2)) + 1).padStart(2, '0')}${hora.slice(2)}`;
 const libres = (t) => Math.max(0, t.cupo - (estado.ocupados[t.id] || 0));
 const turnosDe = (dia) => dia.horarios.map((h) => turnoPorId(`${dia.id}-${h.hora.replace(':', '')}`));
+const personasTxt = (n) => (n === 1 ? '1 persona' : `${n} personas`);
+
+// Cuántos lugares necesita lo que se está reservando ahora.
+const personasNecesarias = () =>
+  estado.cambiando ? estado.reserva.personas : 1 + estado.datos.acompanantes;
 
 // Un turno ya no se ofrece cuando empezó.
 function yaPaso(dia, hora) {
@@ -56,20 +68,21 @@ function toast(msg) {
   $toast.textContent = msg;
   $toast.hidden = false;
   clearTimeout(toast.t);
-  toast.t = setTimeout(() => ($toast.hidden = true), 4000);
+  toast.t = setTimeout(() => ($toast.hidden = true), 4500);
 }
 
 const WA_ICON = `<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38a9.9 9.9 0 0 0 4.74 1.21h.01c5.46 0 9.91-4.45 9.91-9.91A9.85 9.85 0 0 0 12.04 2m0 18.15h-.01a8.2 8.2 0 0 1-4.19-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.2 8.2 0 0 1-1.26-4.38c0-4.54 3.7-8.23 8.25-8.23a8.2 8.2 0 0 1 8.23 8.24c0 4.54-3.7 8.23-8.23 8.23m4.52-6.16c-.25-.12-1.47-.72-1.69-.81-.23-.08-.39-.12-.56.13-.17.24-.64.8-.78.97-.15.16-.29.18-.54.06-.25-.12-1.05-.39-1.99-1.23-.74-.66-1.23-1.47-1.38-1.72-.14-.25-.02-.38.11-.5.11-.11.25-.29.37-.43.13-.15.17-.25.25-.41.08-.17.04-.31-.02-.43-.06-.13-.56-1.35-.76-1.84-.2-.48-.41-.42-.56-.43h-.48c-.17 0-.43.06-.66.31-.22.25-.86.85-.86 2.07s.89 2.4 1.01 2.56c.12.17 1.75 2.67 4.23 3.74.59.26 1.05.41 1.41.52.59.19 1.13.16 1.56.1.48-.07 1.47-.6 1.67-1.18.21-.58.21-1.07.15-1.18-.07-.1-.23-.16-.48-.28"/></svg>`;
 
-// ── vistas ───────────────────────────────────────────────────
-
 const PELOTA = `<svg class="pelota-ok" viewBox="-25 -25 50 50" aria-hidden="true"><circle r="23" fill="#d8f03c"/><path d="M-17-15c9 8 9 22 0 30M17-15c-9 8-9 22 0 30" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/></svg>`;
 
+// ── vistas ───────────────────────────────────────────────────
+
 function vistaListo() {
-  const t = turnoPorId(estado.reserva);
+  const r = estado.reserva;
+  const t = turnoPorId(r.turno);
   const acciones = estado.confirmandoBaja
     ? `<div class="baja-confirmar">
-        <p>¿Seguro? Liberás tu lugar del ${t.dia.nombre.toLowerCase()} a las ${t.hora} y otra persona lo puede tomar.</p>
+        <p>¿Seguro? Liberás ${r.personas === 1 ? 'tu lugar' : `los ${r.personas} lugares`} del ${t.dia.nombre.toLowerCase()} a las ${t.hora} y otras personas los pueden tomar.</p>
         <div class="baja-botones">
           <button class="btn-baja" data-accion="baja-si" ${estado.enviando ? 'disabled' : ''}>${estado.enviando ? 'Liberando…' : 'Sí, desinscribirme'}</button>
           <button class="btn-link" data-accion="baja-no">No, me quedo</button>
@@ -85,21 +98,19 @@ function vistaListo() {
       ${PELOTA}
       <h2>¡Estás anotado!</h2>
       <p class="turno-grande">${t.dia.nombre} ${t.dia.fecha}<strong>${t.hora} a ${horaFin(t.hora)} h</strong></p>
-      <p class="paso">Último paso: sumate al grupo de WhatsApp de tu turno. Ahí se pasa toda la info.</p>
+      <p class="reserva-de">A nombre de <b>${esc(r.nombre)}</b> · ${personasTxt(r.personas)}</p>
+      <p class="paso">Último paso: sumate al grupo de WhatsApp de tu turno. Ahí se pasa toda la info.${
+        r.personas > 1 ? ' Pasale el link a quienes vienen con vos.' : ''
+      }</p>
       <a class="btn-wa" href="${t.whatsapp}" target="_blank" rel="noopener">${WA_ICON} Unirme al grupo</a>
       <p class="nota">Si cerrás esto, volvé a escanear el QR desde este mismo celular y vas a ver tu grupo.</p>
       ${acciones}
     </section>`;
 }
 
-function vistaElegir() {
-  const dias = diasVigentes();
-  if (dias.length === 0) {
-    return `<section class="card"><h2>Inscripción cerrada</h2><p>Ya pasaron todas las fechas. ¡Gracias!</p></section>`;
-  }
-
+function bloqueDias(dias) {
   const findes = [...new Set(dias.map((d) => d.finde))];
-  const bloquesDias = findes
+  return findes
     .map((f) => {
       const ds = dias.filter((d) => d.finde === f);
       return `
@@ -121,10 +132,12 @@ function vistaElegir() {
       </div>`;
     })
     .join('');
+}
 
-  const dia = DIAS.find((d) => d.id === estado.diaSel);
-  const bloqueTurnos = dia
-    ? `
+function bloqueTurnos(dia) {
+  // Al cambiar de horario, sólo sirven los turnos donde entra todo el grupo.
+  const minimo = estado.cambiando ? estado.reserva.personas : 1;
+  return `
     <section class="card turnos" id="turnos">
       <h2><span class="num-paso">2</span>${dia.nombre} ${dia.fecha} · horario</h2>
       ${turnosVigentes(dia)
@@ -132,28 +145,81 @@ function vistaElegir() {
           const l = libres(t);
           const pct = Math.round(((t.cupo - l) / t.cupo) * 100);
           const sel = estado.turnoSel === t.id;
-          const actual = estado.reserva === t.id;
-          return `<button class="turno${sel ? ' sel' : ''}" data-turno="${t.id}" ${l === 0 || actual ? 'disabled' : ''} aria-pressed="${sel}">
+          const actual = estado.reserva?.turno === t.id;
+          const etiqueta = actual
+            ? 'Tu turno actual'
+            : l === 0
+              ? 'Completo'
+              : l < minimo
+                ? `Quedan ${l}, no entran ${minimo}`
+                : `Quedan ${l}`;
+          return `<button class="turno${sel ? ' sel' : ''}" data-turno="${t.id}" ${l < minimo || actual ? 'disabled' : ''} aria-pressed="${sel}">
             <span class="turno-hora">${t.hora} – ${horaFin(t.hora)}</span>
-            <span class="turno-libres ${l <= 5 ? 'pocos' : ''}">${actual ? 'Tu turno actual' : l === 0 ? 'Completo' : `Quedan ${l}`}</span>
+            <span class="turno-libres ${l <= 5 ? 'pocos' : ''}">${etiqueta}</span>
             <span class="barra"><span style="width:${pct}%"></span></span>
           </button>`;
         })
         .join('')}
-    </section>`
-    : '';
+    </section>`;
+}
 
-  const t = estado.turnoSel && turnoPorId(estado.turnoSel);
-  const barra = t
+function bloqueDatos(turno) {
+  const d = estado.datos;
+  const l = libres(turno);
+  const opciones = Array.from({ length: MAX_ACOMPANANTES + 1 }, (_, k) => {
+    const sel = d.acompanantes === k;
+    const noEntra = 1 + k > l;
+    return `<button type="button" class="opcion${sel ? ' sel' : ''}" data-acompanantes="${k}" ${noEntra ? 'disabled' : ''} aria-pressed="${sel}">
+      <span class="opcion-num">${k === 0 ? 'Solo yo' : `+${k}`}</span>
+      <span class="opcion-txt">${personasTxt(1 + k)}</span>
+    </button>`;
+  }).join('');
+
+  return `
+    <section class="card datos" id="datos">
+      <h2><span class="num-paso">3</span>Tus datos</h2>
+      <label class="campo">
+        <span>Nombre y apellido</span>
+        <input name="nombre" autocomplete="name" maxlength="80" value="${esc(d.nombre)}" placeholder="Juan Pérez" />
+      </label>
+      <label class="campo">
+        <span>Celular (WhatsApp)</span>
+        <input name="telefono" type="tel" inputmode="tel" autocomplete="tel" maxlength="20" value="${esc(d.telefono)}" placeholder="11 2345 6789" />
+      </label>
+      <div class="campo">
+        <span>¿Venís con alguien más?</span>
+        <div class="opciones" role="group" aria-label="Acompañantes" style="grid-template-columns: repeat(${MAX_ACOMPANANTES + 1}, 1fr)">${opciones}</div>
+        <small>Hasta ${MAX_ACOMPANANTES} personas además de vos. Cada una ocupa un lugar.</small>
+      </div>
+      <p class="privacidad">Tus datos sólo los ve la organización, por si hay que avisarte algo.</p>
+    </section>`;
+}
+
+function vistaElegir() {
+  const dias = diasVigentes();
+  if (dias.length === 0) {
+    return `<section class="card"><h2>Inscripción cerrada</h2><p>Ya pasaron todas las fechas. ¡Gracias!</p></section>`;
+  }
+
+  const dia = DIAS.find((d) => d.id === estado.diaSel);
+  const turno = estado.turnoSel && turnoPorId(estado.turnoSel);
+
+  const barra = turno
     ? `<div class="confirmar">
         <button class="btn-primario" data-accion="confirmar" ${estado.enviando ? 'disabled' : ''}>
-          ${estado.enviando ? 'Reservando…' : `Reservar ${t.dia.nombre} ${t.dia.fecha} · ${t.hora} h`}
+          ${
+            estado.enviando
+              ? 'Reservando…'
+              : estado.cambiando
+                ? `Cambiar a ${turno.dia.nombre} ${turno.dia.fecha} · ${turno.hora} h`
+                : `Reservar ${personasTxt(personasNecesarias())} · ${turno.hora} h`
+          }
         </button>
       </div>`
     : '';
 
   const aviso = estado.cambiando
-    ? `<div class="aviso">Estás cambiando tu turno. Si reservás otro, liberás el anterior.
+    ? `<div class="aviso">Estás cambiando tu turno. Al reservar otro, liberás el anterior.
          <button class="btn-link" data-accion="cancelar-cambio">Volver</button></div>`
     : '';
 
@@ -164,17 +230,17 @@ function vistaElegir() {
   return `${aviso}
     <section class="card">
       <h2><span class="num-paso">1</span>Elegí el día</h2>
-      ${bloquesDias}
+      ${bloqueDias(dias)}
     </section>
-    ${bloqueTurnos}
+    ${dia ? bloqueTurnos(dia) : ''}
+    ${turno && !estado.cambiando ? bloqueDatos(turno) : ''}
     ${barra}
     ${demo}`;
 }
 
 function render() {
   if (estado.cargando) return;
-  const reservaValida = estado.reserva && turnoPorId(estado.reserva);
-  $app.innerHTML = reservaValida && !estado.cambiando ? vistaListo() : vistaElegir();
+  $app.innerHTML = estado.reserva && !estado.cambiando ? vistaListo() : vistaElegir();
   $app.classList.toggle('con-barra', !!estado.turnoSel);
 }
 
@@ -189,22 +255,55 @@ async function refrescar() {
   }
 }
 
+function validarDatos() {
+  const { nombre, telefono } = estado.datos;
+  if (nombre.trim().length < 3) return ['nombre', 'Completá tu nombre y apellido.'];
+  if (telefono.replace(/\D/g, '').length < 8) return ['telefono', 'Completá tu celular (al menos 8 números).'];
+  return null;
+}
+
+function marcarError(campo, msg) {
+  toast(msg);
+  const input = $app.querySelector(`[name="${campo}"]`);
+  if (input) {
+    input.setAttribute('aria-invalid', 'true');
+    input.focus();
+  }
+}
+
 async function confirmar() {
   const turno = turnoPorId(estado.turnoSel);
   if (!turno || estado.enviando) return;
+
+  if (!estado.cambiando) {
+    const error = validarDatos();
+    if (error) return marcarError(...error);
+  }
+
   estado.enviando = true;
   render();
   try {
-    const anterior = estado.cambiando ? estado.reserva : null;
-    await estado.store.reservar(turno, anterior);
-    estado.reserva = turno.id;
-    guardarReserva(turno.id);
+    if (estado.cambiando) {
+      await estado.store.cambiar(estado.reserva.token, turno);
+      estado.reserva = { ...estado.reserva, turno: turno.id };
+    } else {
+      const datos = { ...estado.datos, nombre: estado.datos.nombre.trim() };
+      const { token, personas } = await estado.store.reservar(turno, datos);
+      estado.reserva = { token, turno: turno.id, personas, nombre: datos.nombre };
+    }
+    guardarJSON(KEY_RESERVA, estado.reserva);
     estado.cambiando = false;
     estado.turnoSel = null;
     window.scrollTo({ top: 0, behavior: 'smooth' });
   } catch (e) {
     if (e instanceof LlenoError) {
-      toast('Justo se llenó ese horario. Elegí otro.');
+      toast('Justo se llenó ese horario (o no entran todos). Elegí otro.');
+    } else if (e.message === 'reserva') {
+      // La reserva ya no existe en el servidor (por ejemplo, la organización reinició todo).
+      olvidarReserva();
+      toast('No encontramos tu reserva. Anotate de nuevo, por favor.');
+    } else if (['nombre', 'telefono'].includes(e.message)) {
+      marcarError(e.message, 'Revisá tus datos.');
     } else {
       console.error(e);
       toast('Algo falló. Probá de nuevo en unos segundos.');
@@ -217,14 +316,19 @@ async function confirmar() {
   }
 }
 
+function olvidarReserva() {
+  estado.reserva = null;
+  estado.cambiando = false;
+  guardarJSON(KEY_RESERVA, null);
+}
+
 async function desinscribir() {
   if (!estado.reserva || estado.enviando) return;
   estado.enviando = true;
   render();
   try {
-    await estado.store.cancelar(estado.reserva);
-    estado.reserva = null;
-    guardarReserva(null);
+    await estado.store.cancelar(estado.reserva.token);
+    olvidarReserva();
     estado.diaSel = null;
     estado.turnoSel = null;
     toast('Listo, liberaste tu lugar. Si querés, podés elegir otro turno.');
@@ -239,9 +343,19 @@ async function desinscribir() {
   }
 }
 
+// Lo que se escribe queda en el estado (y en el celular), así no se pierde al redibujar.
+$app.addEventListener('input', (ev) => {
+  const { name, value } = ev.target;
+  if (name !== 'nombre' && name !== 'telefono') return;
+  estado.datos[name] = value;
+  ev.target.removeAttribute('aria-invalid');
+  guardarJSON(KEY_DATOS, estado.datos);
+});
+
 $app.addEventListener('click', (ev) => {
   const el = ev.target.closest('button');
   if (!el || el.disabled) return;
+  const accion = el.dataset.accion;
 
   if (el.dataset.dia) {
     estado.diaSel = el.dataset.dia;
@@ -250,24 +364,32 @@ $app.addEventListener('click', (ev) => {
     document.getElementById('turnos')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   } else if (el.dataset.turno) {
     estado.turnoSel = el.dataset.turno;
+    // si no entran todos en este turno, baja los acompañantes a lo que entra
+    const l = libres(turnoPorId(estado.turnoSel));
+    estado.datos.acompanantes = Math.max(0, Math.min(estado.datos.acompanantes, l - 1));
     render();
-  } else if (el.dataset.accion === 'confirmar') {
+    document.getElementById('datos')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } else if (el.dataset.acompanantes) {
+    estado.datos.acompanantes = Number(el.dataset.acompanantes);
+    guardarJSON(KEY_DATOS, estado.datos);
+    render();
+  } else if (accion === 'confirmar') {
     confirmar();
-  } else if (el.dataset.accion === 'cambiar') {
+  } else if (accion === 'cambiar') {
     estado.cambiando = true;
     estado.diaSel = null;
     estado.turnoSel = null;
     refrescar().then(render);
     render();
-  } else if (el.dataset.accion === 'baja') {
+  } else if (accion === 'baja') {
     estado.confirmandoBaja = true;
     render();
-  } else if (el.dataset.accion === 'baja-no') {
+  } else if (accion === 'baja-no') {
     estado.confirmandoBaja = false;
     render();
-  } else if (el.dataset.accion === 'baja-si') {
+  } else if (accion === 'baja-si') {
     desinscribir();
-  } else if (el.dataset.accion === 'cancelar-cambio') {
+  } else if (accion === 'cancelar-cambio') {
     estado.cambiando = false;
     estado.turnoSel = null;
     render();
