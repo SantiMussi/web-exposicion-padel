@@ -1,0 +1,11 @@
+# La config con la clave de la base no se puede abrir desde el navegador.
+<Files "api-config.php">
+    Require all denied
+</Files>
+
+# Que los celulares siempre bajen la última versión de la página.
+<IfModule mod_headers.c>
+    <FilesMatch "\.(html|js|css)$">
+        Header set Cache-Control "no-cache"
+    </FilesMatch>
+</IfModule>

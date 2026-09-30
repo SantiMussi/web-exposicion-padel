@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Cupos Pádel</title>
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+      table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+      th, td { padding: 8px 6px; border-bottom: 1px solid var(--line); text-align: left; }
+      th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+      td.num { text-align: right; }
+      tr.lleno td { color: var(--warn); font-weight: 600; }
+      .total { display: flex; justify-content: space-between; font-size: 20px; font-weight: 700; }
+      .fila-dia td { background: var(--bg); font-weight: 700; }
+    </style>
+  </head>
+  <body>
+    <header class="hero"><div class="hero-in"><span class="tag">Organización</span><h1>Cupos por turno</h1><p id="modo"></p></div></header>
+    <main>
+      <section class="card"><div class="total"><span>Anotados</span><span id="total">…</span></div></section>
+      <section class="card"><table><thead><tr><th>Turno</th><th class="num">Anotados</th><th class="num">Libres</th></tr></thead><tbody id="filas"></tbody></table></section>
+      <button class="btn-primario" id="actualizar">Actualizar</button>
+    </main>
+    <script type="module">
+      import { DIAS } from './config.js';
+      import { crearStore, turnoPorId } from './store.js';
+
+      const store = await crearStore();
+      document.getElementById('modo').textContent = store.demo ? 'Modo demo (datos de este navegador)' : 'Datos en vivo';
+
+      async function cargar() {
+        const oc = await store.leer();
+        let total = 0, cupoTotal = 0, html = '';
+        for (const d of DIAS) {
+          html += `<tr class="fila-dia"><td colspan="3">${d.finde}º finde · ${d.nombre} ${d.fecha}</td></tr>`;
+          for (const h of d.horarios) {
+            const t = turnoPorId(`${d.id}-${h.hora.replace(':', '')}`);
+            const n = oc[t.id] || 0;
+            total += n; cupoTotal += t.cupo;
+            html += `<tr class="${n >= t.cupo ? 'lleno' : ''}"><td>${t.hora} h</td><td class="num">${n}</td><td class="num">${t.cupo - n}</td></tr>`;
+          }
+        }
+        document.getElementById('filas').innerHTML = html;
+        document.getElementById('total').textContent = `${total} / ${cupoTotal}`;
+      }
+
+      document.getElementById('actualizar').onclick = cargar;
+      cargar();
+    </script>
+  </body>
+</html>
